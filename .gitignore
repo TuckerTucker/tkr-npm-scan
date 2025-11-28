@@ -1,5 +1,7 @@
 paths.txt
-results/*
+go/results/*
+node/results/*
+
 
 node_modules/
 dist/
