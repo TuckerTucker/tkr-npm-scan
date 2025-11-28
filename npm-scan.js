@@ -5,9 +5,20 @@
  */
 
 import { parseArgs } from 'node:util';
-import { resolve } from 'node:path';
+import { resolve, relative } from 'node:path';
+import { existsSync } from 'node:fs';
 import { runScan } from './lib/scanner.js';
 import { formatHumanReadable, formatJson } from './lib/formatter.js';
+import {
+  readPathsFile,
+  createTimestampedDirectory,
+  createScanDirectory,
+  saveResultsJson,
+  saveVerboseLog,
+  saveError,
+  saveSummaryReport,
+  createCapturingLogger,
+} from './lib/bulk.js';
 
 const DEFAULT_CSV_URL =
   'https://raw.githubusercontent.com/wiz-sec-public/wiz-research-iocs/main/reports/shai-hulud-2-packages.csv';
@@ -44,6 +55,7 @@ OPTIONS:
   -v, --verbose             Enable verbose logging
   --csv-url <url>           Custom IoC CSV URL
   --lockfile-only           Only scan lockfiles, skip package.json
+  --bulk <file>             Scan multiple paths from file, save to results/ directory
   -h, --help                Show this help message
 
 EXAMPLES:
@@ -52,6 +64,7 @@ EXAMPLES:
   npm-scan --json                   Output JSON for CI/CD integration
   npm-scan --verbose                Enable debug logging
   npm-scan --lockfile-only          Only check resolved dependencies
+  npm-scan --bulk paths.txt -j -v   Scan multiple paths, save results by timestamp
 
 EXIT CODES:
   0  No vulnerabilities found
@@ -69,6 +82,115 @@ SECURITY ADVISORY:
 For more information, visit:
   https://github.com/wiz-sec-public/wiz-research-iocs
 `);
+}
+
+/**
+ * Performs bulk scanning of multiple paths
+ * @param {Array} paths - Array of paths to scan
+ * @param {Object} values - CLI options
+ * @returns {number} - Exit code
+ */
+async function runBulkScan(paths, values) {
+  const timestampDir = createTimestampedDirectory('results');
+  console.log(`\nBulk scan started`);
+  console.log(`Results will be saved to: ${timestampDir}\n`);
+
+  const scanResults = [];
+  let hasVulnerabilities = false;
+
+  for (let i = 0; i < paths.length; i++) {
+    const scanPath = paths[i];
+    const scanNum = `[${i + 1}/${paths.length}]`;
+
+    console.log(`${scanNum} Scanning ${scanPath} ...`);
+
+    // Check if path exists
+    if (!existsSync(scanPath)) {
+      console.error(`${scanNum} Error: Path does not exist - ${scanPath}`);
+      const scanDir = createScanDirectory(timestampDir, scanPath);
+      saveError(scanDir, new Error(`Path does not exist: ${scanPath}`));
+      scanResults.push({
+        path: scanPath,
+        status: 'error',
+        error: 'Path does not exist',
+      });
+      continue;
+    }
+
+    // Create directory for this scan
+    const scanDir = createScanDirectory(timestampDir, scanPath);
+
+    // Create capturing logger for this scan
+    const logger = createCapturingLogger(values.verbose);
+
+    try {
+      const options = {
+        path: resolve(scanPath),
+        csvUrl: values['csv-url'],
+        lockfileOnly: values['lockfile-only'],
+      };
+
+      // Run the scan
+      const results = await runScan(options, logger);
+
+      // Save results.json
+      saveResultsJson(scanDir, results);
+
+      // Save verbose.txt if verbose mode enabled
+      if (values.verbose) {
+        saveVerboseLog(scanDir, logger.getBuffer());
+      }
+
+      // Determine status
+      const status = results.matches.length > 0 ? 'vulnerable' : 'clean';
+      if (status === 'vulnerable') {
+        hasVulnerabilities = true;
+      }
+
+      scanResults.push({
+        path: scanPath,
+        status,
+        matches: results.matches.length,
+      });
+
+      console.log(`${scanNum} Complete - ${status.toUpperCase()} (${results.matches.length} matches)\n`);
+    } catch (error) {
+      console.error(`${scanNum} Error: ${error.message}\n`);
+      saveError(scanDir, error);
+
+      if (values.verbose) {
+        saveVerboseLog(scanDir, logger.getBuffer());
+      }
+
+      scanResults.push({
+        path: scanPath,
+        status: 'error',
+        error: error.message,
+      });
+    }
+  }
+
+  // Generate summary report
+  const summary = saveSummaryReport(timestampDir, scanResults);
+
+  console.log('═'.repeat(60));
+  console.log('BULK SCAN SUMMARY');
+  console.log('═'.repeat(60));
+  console.log(`Total Scanned:     ${summary.totalScanned}`);
+  console.log(`Clean:             ${summary.cleanScans}`);
+  console.log(`Vulnerable:        ${summary.vulnerabilitiesFound}`);
+  console.log(`Failed:            ${summary.failedScans}`);
+  console.log(`Results Directory: ${timestampDir}`);
+  console.log('═'.repeat(60));
+
+  // Exit with appropriate code
+  if (summary.failedScans > 0) {
+    return 2; // Scan errors
+  } else if (hasVulnerabilities) {
+    return 1; // Vulnerabilities found
+  } else {
+    return 0; // Clean
+  }
 }
 
 /**
@@ -102,6 +224,9 @@ async function main() {
           type: 'boolean',
           default: false,
         },
+        bulk: {
+          type: 'string',
+        },
         help: {
           type: 'boolean',
           short: 'h',
@@ -117,6 +242,23 @@ async function main() {
       process.exit(0);
     }
 
+    // Handle bulk scanning mode
+    if (values.bulk) {
+      if (!existsSync(values.bulk)) {
+        throw new Error(`Bulk paths file not found: ${values.bulk}`);
+      }
+
+      const paths = readPathsFile(values.bulk);
+
+      if (paths.length === 0) {
+        throw new Error(`No valid paths found in ${values.bulk}`);
+      }
+
+      const exitCode = await runBulkScan(paths, values);
+      process.exit(exitCode);
+    }
+
+    // Single scan mode (original behavior)
     // Use positional argument as path if provided
     const targetPath = positionals[0] || values.path;
 

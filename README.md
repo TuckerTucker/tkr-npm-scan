@@ -44,6 +44,7 @@ OPTIONS:
   -v, --verbose             Enable verbose logging
   --csv-url <url>           Custom IoC CSV URL
   --lockfile-only           Only scan lockfiles, skip package.json
+  --bulk <file>             Scan multiple paths from file, save to results/ directory
   -h, --help                Show help message
 ```
 
@@ -64,9 +65,17 @@ node npm-scan.js --json > scan-results.json
 node npm-scan.js --lockfile-only
 ```
 
-**Scan multiple projects:**
+**Bulk scan multiple projects:**
 ```bash
-node npm-scan.js /path/to/project1 && node npm-scan.js /path/to/project2
+# Create a file with paths to scan
+cat > paths.txt << EOF
+/path/to/project1
+/path/to/project2
+/path/to/project3
+EOF
+
+# Run bulk scan with JSON and verbose output
+node npm-scan.js --bulk paths.txt -j -v
 ```
 
 ## Output
@@ -124,6 +133,53 @@ TRANSITIVE DEPENDENCIES (1)
 }
 ```
 
+### Bulk Scan Output
+
+When using `--bulk`, results are organized in a timestamped directory structure:
+
+```
+results/
+  2025-11-27-14-30-45/
+    summary.json                    # Overall scan summary
+    path-to-project1/
+      results.json                  # Scan results for project1
+      verbose.txt                   # Verbose logs (if -v used)
+    path-to-project2/
+      results.json
+      verbose.txt
+    path-to-project3/
+      results.json
+      error.txt                     # Error details if scan failed
+```
+
+**Summary Report (`summary.json`):**
+```json
+{
+  "totalScanned": 3,
+  "vulnerabilitiesFound": 1,
+  "cleanScans": 2,
+  "failedScans": 0,
+  "timestamp": "2025-11-27T14:30:45.000Z",
+  "paths": [
+    {
+      "path": "/path/to/project1",
+      "status": "clean",
+      "matches": 0
+    },
+    {
+      "path": "/path/to/project2",
+      "status": "vulnerable",
+      "matches": 2
+    },
+    {
+      "path": "/path/to/project3",
+      "status": "clean",
+      "matches": 0
+    }
+  ]
+}
+```
+
 ## How It Works
 
 1. **Fetches IoC database** - Downloads the latest CSV of compromised packages (native `fetch`) from [wiz research IoC](https://github.com/wiz-sec-public/wiz-research-iocs/blob/main/reports/shai-hulud-2-packages.csv)
@@ -132,6 +188,7 @@ TRANSITIVE DEPENDENCIES (1)
 4. **Parses dependencies** - Extracts both direct and transitive dependencies (native JSON parsing)
 5. **Matches against IoCs** - Cross-references package names and versions (custom semver logic)
 6. **Reports findings** - Displays results with severity levels and remediation guidance
+7. **Bulk mode** - Orchestrates multiple scans, organizes output by timestamp, generates summary
 
 ## Detection Levels
 
