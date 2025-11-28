@@ -30,12 +30,14 @@ Requirements:
 git clone https://github.com/tuckertucker/tkr-npm-scan.git
 cd tkr-npm-scan/go
 
-# Build
-go build -o npm-scan ./cmd/npm-scan
+# Build (recommended - static binary with no external dependencies)
+CGO_ENABLED=0 go build -o npm-scan ./cmd/npm-scan
 
-# Or build with static linking for distribution
+# Or build with size optimization
 CGO_ENABLED=0 go build -ldflags="-s -w" -o npm-scan ./cmd/npm-scan
 ```
+
+**Important for macOS users:** Always use `CGO_ENABLED=0` to avoid linker issues. This creates a fully static binary with no runtime dependencies.
 
 ## Usage
 
@@ -209,27 +211,35 @@ go tool cover -html=coverage.out
 
 ### Building
 
-Development build:
+**Recommended build (static binary):**
 ```bash
-go build -o npm-scan ./cmd/npm-scan
+CGO_ENABLED=0 go build -o npm-scan ./cmd/npm-scan
 ```
 
-Production build (static binary):
+**Production build with size optimization:**
 ```bash
 CGO_ENABLED=0 go build -ldflags="-s -w" -o npm-scan ./cmd/npm-scan
 ```
 
-Cross-compilation:
+**Cross-compilation:**
 ```bash
-# Linux
-GOOS=linux GOARCH=amd64 go build -o npm-scan-linux ./cmd/npm-scan
+# Linux (amd64)
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o npm-scan-linux ./cmd/npm-scan
 
-# macOS
-GOOS=darwin GOARCH=amd64 go build -o npm-scan-macos ./cmd/npm-scan
+# Linux (arm64)
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o npm-scan-linux-arm64 ./cmd/npm-scan
+
+# macOS (Intel)
+CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o npm-scan-macos-amd64 ./cmd/npm-scan
+
+# macOS (Apple Silicon)
+CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o npm-scan-macos-arm64 ./cmd/npm-scan
 
 # Windows
-GOOS=windows GOARCH=amd64 go build -o npm-scan.exe ./cmd/npm-scan
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o npm-scan.exe ./cmd/npm-scan
 ```
+
+**Note:** `CGO_ENABLED=0` is required for macOS to avoid LC_UUID linker errors and creates truly portable binaries.
 
 ## Architecture
 
