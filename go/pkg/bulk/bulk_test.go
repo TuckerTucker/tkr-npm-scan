@@ -1,7 +1,6 @@
 package bulk
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
