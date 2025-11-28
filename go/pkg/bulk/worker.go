@@ -31,12 +31,14 @@ type ScanJobResult struct {
 }
 
 // NewWorkerPool creates a new worker pool with the specified number of workers.
+// The channels are unbuffered to prevent deadlocks - the caller must consume results
+// as they are produced.
 func NewWorkerPool(numWorkers int) *WorkerPool {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &WorkerPool{
 		numWorkers: numWorkers,
-		jobs:       make(chan ScanJob, numWorkers),
-		results:    make(chan ScanJobResult, numWorkers),
+		jobs:       make(chan ScanJob),       // Unbuffered
+		results:    make(chan ScanJobResult), // Unbuffered
 		ctx:        ctx,
 		cancel:     cancel,
 	}

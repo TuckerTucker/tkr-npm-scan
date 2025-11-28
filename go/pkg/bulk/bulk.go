@@ -103,22 +103,24 @@ func RunBulkScan(options BulkOptions) error {
 	pool := NewWorkerPool(options.NumWorkers)
 	pool.Start()
 
-	// Submit jobs
-	for _, path := range paths {
-		job := ScanJob{
-			Path: path,
-			Options: scanner.ScanOptions{
-				Path:         path,
-				CSVURL:       options.CSVURL,
-				LockfileOnly: options.LockfileOnly,
-				Verbose:      false, // Worker will override this
-				Context:      options.Context,
-			},
+	// Submit jobs in a separate goroutine to avoid blocking
+	go func() {
+		for _, path := range paths {
+			job := ScanJob{
+				Path: path,
+				Options: scanner.ScanOptions{
+					Path:         path,
+					CSVURL:       options.CSVURL,
+					LockfileOnly: options.LockfileOnly,
+					Verbose:      false, // Worker will override this
+					Context:      options.Context,
+				},
+			}
+			if err := pool.Submit(job); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to submit job for %s: %v\n", path, err)
+			}
 		}
-		if err := pool.Submit(job); err != nil {
-			return fmt.Errorf("failed to submit job: %w", err)
-		}
-	}
+	}()
 
 	// Collect results
 	summary := &BulkSummary{
