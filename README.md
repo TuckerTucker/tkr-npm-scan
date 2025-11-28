@@ -2,8 +2,21 @@
 
 **Zero-Dependency** NPM vulnerability scanner for detecting packages affected by the **shai-hulud** supply chain attack.
 
-**Zero-dependency approach:**
-- Uses ONLY Node.js built-in modules
+## Implementations
+
+This repository contains **two implementations** of the same vulnerability scanner:
+
+### Node.js Version (`node/`)
+- **Zero external dependencies** - Only Node.js built-in modules
+- **Quick setup** - No compilation required
+- See [node/README.md](node/README.md) for Node.js-specific documentation
+
+### Go Version (`go/`)
+- **Compiled binary** - Fast execution, no runtime required
+- **Cross-platform** - Linux, macOS, Windows binaries
+- See [go/README.md](go/README.md) for Go-specific documentation
+
+Both implementations provide identical functionality and output formats.
 
 ## Overview
 
@@ -11,23 +24,29 @@ This CLI tool scans npm projects to identify packages compromised in the shai-hu
 
 **Features:**
 
-- ✅ **Zero external dependencies** - Only Node.js built-ins
 - ✅ **Direct dependency detection** - Finds exact version matches in `package.json`
 - ✅ **Transitive dependency detection** - Scans lockfiles for compromised packages deep in the dependency tree
 - ✅ **Multi-lockfile support** - Works with npm and Yarn
 - ✅ **Monorepo-aware** - Discovers all `package.json` files recursively
 - ✅ **Version range analysis** - Identifies potential matches where ranges might resolve to vulnerable versions
+- ✅ **Bulk scanning** - Scan multiple projects concurrently with organized output
 - ✅ **Actionable output** - Provides remediation guidance for each finding
 
-## Installation
+## Quick Start
 
-### Clone and run
+### Node.js Version
 
 ```bash
-git clone https://github.com/tuckertucker/tkr-npm-scan.git
-cd tkr-npm-scan
-git checkout no-npm
+cd node
 node npm-scan.js /path/to/scan
+```
+
+### Go Version
+
+```bash
+cd go
+go build -o npm-scan ./cmd/npm-scan
+./npm-scan /path/to/scan
 ```
 
 ## Usage
@@ -36,7 +55,7 @@ node npm-scan.js /path/to/scan
 
 ```
 USAGE:
-  node npm-scan.js [path] [options]
+  npm-scan [path] [options]
 
 OPTIONS:
   -p, --path <dir>          Target directory to scan
@@ -52,17 +71,17 @@ OPTIONS:
 
 **Scan with verbose logging:**
 ```bash
-node npm-scan.js --verbose
+npm-scan --verbose
 ```
 
 **JSON output for CI/CD:**
 ```bash
-node npm-scan.js --json > scan-results.json
+npm-scan --json > scan-results.json
 ```
 
 **Only check resolved dependencies:**
 ```bash
-node npm-scan.js --lockfile-only
+npm-scan --lockfile-only
 ```
 
 **Bulk scan multiple projects:**
@@ -75,7 +94,7 @@ cat > paths.txt << EOF
 EOF
 
 # Run bulk scan with JSON and verbose output
-node npm-scan.js --bulk paths.txt -j -v
+npm-scan --bulk paths.txt -j -v
 ```
 
 ## Output
@@ -182,11 +201,11 @@ results/
 
 ## How It Works
 
-1. **Fetches IoC database** - Downloads the latest CSV of compromised packages (native `fetch`) from [wiz research IoC](https://github.com/wiz-sec-public/wiz-research-iocs/blob/main/reports/shai-hulud-2-packages.csv)
-2. **Discovers manifests** - Finds all `package.json` files (recursive `readdir`)
+1. **Fetches IoC database** - Downloads the latest CSV of compromised packages from [wiz research IoC](https://github.com/wiz-sec-public/wiz-research-iocs/blob/main/reports/shai-hulud-2-packages.csv)
+2. **Discovers manifests** - Finds all `package.json` files recursively
 3. **Discovers lockfiles** - Locates `package-lock.json`, `yarn.lock`
-4. **Parses dependencies** - Extracts both direct and transitive dependencies (native JSON parsing)
-5. **Matches against IoCs** - Cross-references package names and versions (custom semver logic)
+4. **Parses dependencies** - Extracts both direct and transitive dependencies
+5. **Matches against IoCs** - Cross-references package names and versions using semver
 6. **Reports findings** - Displays results with severity levels and remediation guidance
 7. **Bulk mode** - Orchestrates multiple scans, organizes output by timestamp, generates summary
 
@@ -220,31 +239,12 @@ Version range in `package.json` that could resolve to compromised version.
 
 Verify with lockfile to confirm actual resolved version.
 
-
-## Testing
-
-Uses Node.js built-in test runner (`node:test`) - no external test frameworks:
-
-```bash
-node --test test/*.test.js
-```
-
-Sample test output:
-```
-TAP version 13
-ok 1 - parse() should parse valid semver versions
-ok 2 - satisfies() should handle caret ranges
-# tests 9
-# pass 9
-```
-
 ## Data Source
 
 IoC data sourced from [Wiz Security Research](https://github.com/wiz-sec-public/wiz-research-iocs):
 - **Repository:** `wiz-sec-public/wiz-research-iocs`
 - **File:** `reports/shai-hulud-2-packages.csv`
 - **Format:** `Package,Version` (exact versions only)
-
 
 ## License
 
