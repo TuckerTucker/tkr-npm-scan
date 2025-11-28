@@ -49,9 +49,10 @@ func FetchIoCDatabase(url string) ([]byte, error) {
 // ParseCSV parses IoC CSV data and returns package->versions mapping.
 // The CSV format is expected to have a header row, then lines with:
 // - Column 0: package name
-// - Column 1: version specification (e.g., "= 0.0.7")
+// - Column 1: version specification (e.g., "= 0.0.7" or "= 0.1.18 || = 0.1.19 || = 0.1.20")
 //
 // The version specification is trimmed and the "= " prefix is removed.
+// Multiple versions separated by || are split into individual entries.
 // Malformed lines (missing columns or empty) are skipped.
 func ParseCSV(data []byte) (map[string][]string, error) {
 	reader := csv.NewReader(strings.NewReader(string(data)))
@@ -88,11 +89,19 @@ func ParseCSV(data []byte) (map[string][]string, error) {
 			continue
 		}
 
-		// Strip "= " prefix from version (e.g., "= 0.0.7" -> "0.0.7")
-		version := strings.TrimPrefix(versionSpec, "=")
-		version = strings.TrimSpace(version)
+		// Split on || to handle multiple versions in one entry
+		// Example: "= 0.1.18 || = 0.1.19 || = 0.1.20" -> ["= 0.1.18", "= 0.1.19", "= 0.1.20"]
+		versionParts := strings.Split(versionSpec, "||")
 
-		iocMap[packageName] = append(iocMap[packageName], version)
+		for _, versionPart := range versionParts {
+			// Strip "= " prefix from version (e.g., "= 0.0.7" -> "0.0.7")
+			version := strings.TrimPrefix(strings.TrimSpace(versionPart), "=")
+			version = strings.TrimSpace(version)
+
+			if version != "" {
+				iocMap[packageName] = append(iocMap[packageName], version)
+			}
+		}
 	}
 
 	return iocMap, nil

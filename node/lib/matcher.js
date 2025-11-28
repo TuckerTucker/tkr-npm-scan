@@ -9,7 +9,7 @@ import { equal, satisfies, isExactVersion } from './semver.js';
  * Matches direct dependencies with exact versions against IoC database
  *
  * @param {Array} dependencies - Array of package dependencies
- * @param {Map<string, string>} iocMap - Map of package name to compromised version
+ * @param {Map<string, string[]>} iocMap - Map of package name to array of compromised versions
  * @param {object} [logger] - Logger instance (optional)
  * @returns {Array<{packageName: string, version: string, severity: string, location: string}>}
  */
@@ -17,9 +17,9 @@ export function matchDirectDependencies(dependencies, iocMap, logger = console) 
   const matches = [];
 
   for (const dep of dependencies) {
-    const iocVersion = iocMap.get(dep.name);
+    const iocVersions = iocMap.get(dep.name);
 
-    if (!iocVersion) {
+    if (!iocVersions || iocVersions.length === 0) {
       continue; // Package not in IoC database
     }
 
@@ -27,16 +27,20 @@ export function matchDirectDependencies(dependencies, iocMap, logger = console) 
     if (isExactVersion(dep.versionSpec)) {
       const cleanedSpec = dep.versionSpec.replace(/^v/, '');
 
-      if (equal(cleanedSpec, iocVersion)) {
-        matches.push({
-          packageName: dep.name,
-          version: iocVersion,
-          severity: 'DIRECT',
-          location: dep.filePath,
-        });
+      // Check against all IoC versions for this package
+      for (const iocVersion of iocVersions) {
+        if (equal(cleanedSpec, iocVersion)) {
+          matches.push({
+            packageName: dep.name,
+            version: iocVersion,
+            severity: 'DIRECT',
+            location: dep.filePath,
+          });
 
-        logger.warn?.(`DIRECT match: ${dep.name}@${iocVersion} in ${dep.filePath}`) ||
-          console.warn(`DIRECT match: ${dep.name}@${iocVersion} in ${dep.filePath}`);
+          logger.warn?.(`DIRECT match: ${dep.name}@${iocVersion} in ${dep.filePath}`) ||
+            console.warn(`DIRECT match: ${dep.name}@${iocVersion} in ${dep.filePath}`);
+          break; // Only report once per dependency
+        }
       }
     }
   }
@@ -51,7 +55,7 @@ export function matchDirectDependencies(dependencies, iocMap, logger = console) 
  * Identifies potential matches where version ranges might include IoC version
  *
  * @param {Array} dependencies - Array of package dependencies
- * @param {Map<string, string>} iocMap - Map of package name to compromised version
+ * @param {Map<string, string[]>} iocMap - Map of package name to array of compromised versions
  * @param {object} [logger] - Logger instance (optional)
  * @returns {Array<{packageName: string, version: string, severity: string, location: string, declaredSpec: string}>}
  */
@@ -59,9 +63,9 @@ export function matchPotentialDependencies(dependencies, iocMap, logger = consol
   const matches = [];
 
   for (const dep of dependencies) {
-    const iocVersion = iocMap.get(dep.name);
+    const iocVersions = iocMap.get(dep.name);
 
-    if (!iocVersion) {
+    if (!iocVersions || iocVersions.length === 0) {
       continue;
     }
 
@@ -70,23 +74,26 @@ export function matchPotentialDependencies(dependencies, iocMap, logger = consol
       continue;
     }
 
-    try {
-      // Check if IoC version satisfies the range
-      if (satisfies(iocVersion, dep.versionSpec)) {
-        matches.push({
-          packageName: dep.name,
-          version: iocVersion,
-          severity: 'POTENTIAL',
-          location: dep.filePath,
-          declaredSpec: dep.versionSpec,
-        });
+    // Check if any IoC version satisfies the range
+    for (const iocVersion of iocVersions) {
+      try {
+        if (satisfies(iocVersion, dep.versionSpec)) {
+          matches.push({
+            packageName: dep.name,
+            version: iocVersion,
+            severity: 'POTENTIAL',
+            location: dep.filePath,
+            declaredSpec: dep.versionSpec,
+          });
 
-        logger.debug?.(`POTENTIAL match: ${dep.name}@${dep.versionSpec} (IoC: ${iocVersion}) in ${dep.filePath}`) ||
-          (logger.verbose && console.log(`POTENTIAL match: ${dep.name}@${dep.versionSpec} (IoC: ${iocVersion}) in ${dep.filePath}`));
+          logger.debug?.(`POTENTIAL match: ${dep.name}@${dep.versionSpec} (IoC: ${iocVersion}) in ${dep.filePath}`) ||
+            (logger.verbose && console.log(`POTENTIAL match: ${dep.name}@${dep.versionSpec} (IoC: ${iocVersion}) in ${dep.filePath}`));
+          break; // Only report once per dependency
+        }
+      } catch (error) {
+        logger.debug?.(`Failed to parse version range for ${dep.name}@${dep.versionSpec}: ${error.message}`) ||
+          (logger.verbose && console.log(`Failed to parse version range for ${dep.name}@${dep.versionSpec}: ${error.message}`));
       }
-    } catch (error) {
-      logger.debug?.(`Failed to parse version range for ${dep.name}@${dep.versionSpec}: ${error.message}`) ||
-        (logger.verbose && console.log(`Failed to parse version range for ${dep.name}@${dep.versionSpec}: ${error.message}`));
     }
   }
 
@@ -100,7 +107,7 @@ export function matchPotentialDependencies(dependencies, iocMap, logger = consol
  * Matches resolved packages from lockfiles against IoC database
  *
  * @param {Array} resolvedPackages - Array of resolved packages from lockfiles
- * @param {Map<string, string>} iocMap - Map of package name to compromised version
+ * @param {Map<string, string[]>} iocMap - Map of package name to array of compromised versions
  * @param {object} [logger] - Logger instance (optional)
  * @returns {Array<{packageName: string, version: string, severity: string, location: string}>}
  */
@@ -108,22 +115,26 @@ export function matchTransitiveDependencies(resolvedPackages, iocMap, logger = c
   const matches = [];
 
   for (const pkg of resolvedPackages) {
-    const iocVersion = iocMap.get(pkg.name);
+    const iocVersions = iocMap.get(pkg.name);
 
-    if (!iocVersion) {
+    if (!iocVersions || iocVersions.length === 0) {
       continue;
     }
 
-    if (equal(pkg.version, iocVersion)) {
-      matches.push({
-        packageName: pkg.name,
-        version: pkg.version,
-        severity: 'TRANSITIVE',
-        location: pkg.lockfilePath,
-      });
+    // Check if package version matches any IoC version
+    for (const iocVersion of iocVersions) {
+      if (equal(pkg.version, iocVersion)) {
+        matches.push({
+          packageName: pkg.name,
+          version: pkg.version,
+          severity: 'TRANSITIVE',
+          location: pkg.lockfilePath,
+        });
 
-      logger.warn?.(`TRANSITIVE match: ${pkg.name}@${pkg.version} in ${pkg.lockfilePath}`) ||
-        console.warn(`TRANSITIVE match: ${pkg.name}@${pkg.version} in ${pkg.lockfilePath}`);
+        logger.warn?.(`TRANSITIVE match: ${pkg.name}@${pkg.version} in ${pkg.lockfilePath}`) ||
+          console.warn(`TRANSITIVE match: ${pkg.name}@${pkg.version} in ${pkg.lockfilePath}`);
+        break; // Only report once per resolved package
+      }
     }
   }
 

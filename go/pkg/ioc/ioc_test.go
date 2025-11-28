@@ -107,6 +107,37 @@ vulnerable,= 1.0.1`,
 			},
 			wantErr: false,
 		},
+		{
+			name: "multiple versions with || separator",
+			csv: `Package,Version
+@zapier/ai-actions,= 0.1.18 || = 0.1.19 || = 0.1.20`,
+			want: map[string][]string{
+				"@zapier/ai-actions": {"0.1.18", "0.1.19", "0.1.20"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "mixed: single version and || separator",
+			csv: `Package,Version
+single-pkg,= 1.0.0
+@zapier/ai-actions-react,= 0.1.12 || = 0.1.13 || = 0.1.14
+another-single,= 2.0.0`,
+			want: map[string][]string{
+				"single-pkg":                 {"1.0.0"},
+				"@zapier/ai-actions-react":   {"0.1.12", "0.1.13", "0.1.14"},
+				"another-single":             {"2.0.0"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "|| separator with extra whitespace",
+			csv: `Package,Version
+pkg-with-spaces,  =  1.0.0  ||  =  1.0.1  ||  =  1.0.2  `,
+			want: map[string][]string{
+				"pkg-with-spaces": {"1.0.0", "1.0.1", "1.0.2"},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {

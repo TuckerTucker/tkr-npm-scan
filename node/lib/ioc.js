@@ -38,16 +38,19 @@ export async function fetchIoCDatabase(url = DEFAULT_IOC_URL, logger = console) 
 }
 
 /**
- * Parses CSV text into a Map of package name to version
+ * Parses CSV text into a Map of package name to array of versions
  *
  * CSV format:
  * Package,Version
  * 02-echo,= 0.0.7
  * @accordproject/concerto-analysis,= 3.24.1
+ * @zapier/ai-actions,= 0.1.18 || = 0.1.19 || = 0.1.20
+ *
+ * Handles multiple versions separated by || in a single entry.
  *
  * @param {string} csvText - Raw CSV content
  * @param {object} [logger] - Logger instance (optional)
- * @returns {Map<string, string>} Map of package name to version
+ * @returns {Map<string, string[]>} Map of package name to array of versions
  */
 export function parseIoCCsv(csvText, logger = console) {
   const iocMap = new Map();
@@ -69,14 +72,35 @@ export function parseIoCCsv(csvText, logger = console) {
       continue;
     }
 
-    // Strip "= " prefix from version (format: "= 0.0.7" -> "0.0.7")
-    const version = versionSpec.trim().replace(/^=\s*/, '');
+    const pkgName = packageName.trim();
 
-    iocMap.set(packageName.trim(), version);
+    // Split on || to handle multiple versions in one entry
+    // Example: "= 0.1.18 || = 0.1.19 || = 0.1.20" -> ["= 0.1.18", "= 0.1.19", "= 0.1.20"]
+    const versionParts = versionSpec.split('||').map((v) => v.trim());
+
+    // Get or create the versions array for this package
+    if (!iocMap.has(pkgName)) {
+      iocMap.set(pkgName, []);
+    }
+    const versions = iocMap.get(pkgName);
+
+    // Process each version, stripping the "= " prefix
+    for (const versionPart of versionParts) {
+      const version = versionPart.replace(/^=\s*/, '').trim();
+      if (version) {
+        versions.push(version);
+      }
+    }
   }
 
-  logger.debug?.(`Parsed ${iocMap.size} IoC entries`) ||
-    (logger.verbose && console.log(`Parsed ${iocMap.size} IoC entries`));
+  // Count total versions across all packages
+  let totalVersions = 0;
+  for (const versions of iocMap.values()) {
+    totalVersions += versions.length;
+  }
+
+  logger.debug?.(`Parsed ${iocMap.size} packages with ${totalVersions} total versions`) ||
+    (logger.verbose && console.log(`Parsed ${iocMap.size} packages with ${totalVersions} total versions`));
 
   return iocMap;
 }
