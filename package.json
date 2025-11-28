@@ -1,0 +1,32 @@
+{
+  "name": "tkr-npm-scan",
+  "version": "2.0.0",
+  "description": "Zero-dependency CLI tool to scan npm packages for shai-hulud vulnerability (supply chain attack detection)",
+  "type": "module",
+  "main": "cli.js",
+  "bin": {
+    "npm-scan": "./cli.js"
+  },
+  "scripts": {
+    "scan": "node cli.js",
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "npm",
+    "security",
+    "vulnerability",
+    "scanner",
+    "supply-chain",
+    "zero-dependency",
+    "shai-hulud"
+  ],
+  "author": "TuckerTucker",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tuckertucker/tkr-npm-scan.git"
+  }
+}
