@@ -1,0 +1,20 @@
+# yarn lockfile v1
+"@scope/package@^1.0.0":
+  version "1.0.5"
+  resolved "https://registry.yarnpkg.com/@scope/package/-/package-1.0.5.tgz#abc123def456"
+
+"express@^4.18.0":
+  version "4.18.2"
+  resolved "https://registry.yarnpkg.com/express/-/express-4.18.2.tgz#xyz789abc123"
+
+"express@^4.17.0":
+  version "4.17.3"
+  resolved "https://registry.yarnpkg.com/express/-/express-4.17.3.tgz#def456xyz789"
+
+"lodash@^4.17.21", "lodash@^4.17.0":
+  version "4.17.21"
+  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.21.tgz#abc123def456"
+
+"simple-package@*":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/simple-package/-/simple-package-1.0.0.tgz#xyz789abc123"

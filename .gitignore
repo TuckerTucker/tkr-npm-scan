@@ -9,7 +9,15 @@ coverage/
 .env
 *.tsbuildinfo
 
+# Go-specific patterns
+go/npm-scan
+go/npm-scan-*
+*.exe
+*.test
+*.out
+go/coverage.out
+
 # tkr-context-kit
 .context-kit
 .claude
-claude.local.md 
+claude.local.md

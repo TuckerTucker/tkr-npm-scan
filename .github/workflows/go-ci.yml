@@ -1,0 +1,88 @@
+name: Go CI
+
+on:
+  push:
+    branches: [ main, npm-scan-go ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        go-version: ['1.21', '1.22']
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Get dependencies
+      working-directory: ./go
+      run: go mod download
+
+    - name: Verify dependencies
+      working-directory: ./go
+      run: go mod verify
+
+    - name: Run go vet
+      working-directory: ./go
+      run: go vet ./...
+
+    - name: Run go fmt
+      working-directory: ./go
+      run: |
+        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          echo "Code is not formatted. Run 'go fmt ./...'"
+          gofmt -s -d .
+          exit 1
+        fi
+      shell: bash
+
+    - name: Run tests
+      working-directory: ./go
+      run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+    - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.22'
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./go/coverage.out
+        flags: go
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.22'
+
+    - name: Build
+      working-directory: ./go
+      run: go build -v -o npm-scan ./cmd/npm-scan
+
+    - name: Test binary
+      working-directory: ./go
+      run: |
+        ./npm-scan --help
+        ./npm-scan --version || true
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: npm-scan-linux-amd64
+        path: go/npm-scan
