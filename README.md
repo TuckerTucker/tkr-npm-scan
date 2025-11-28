@@ -27,7 +27,7 @@ This CLI tool scans npm projects to identify packages compromised in the shai-hu
 git clone https://github.com/tuckertucker/tkr-npm-scan.git
 cd tkr-npm-scan
 git checkout no-npm
-node cli.js /path/to/scan
+node npm-scan.js /path/to/scan
 ```
 
 ## Usage
@@ -36,7 +36,7 @@ node cli.js /path/to/scan
 
 ```
 USAGE:
-  node cli.js [path] [options]
+  node npm-scan.js [path] [options]
 
 OPTIONS:
   -p, --path <dir>          Target directory to scan
@@ -51,22 +51,22 @@ OPTIONS:
 
 **Scan with verbose logging:**
 ```bash
-node cli.js --verbose
+node npm-scan.js --verbose
 ```
 
 **JSON output for CI/CD:**
 ```bash
-node cli.js --json > scan-results.json
+node npm-scan.js --json > scan-results.json
 ```
 
 **Only check resolved dependencies:**
 ```bash
-node cli.js --lockfile-only
+node npm-scan.js --lockfile-only
 ```
 
 **Scan multiple projects:**
 ```bash
-node cli.js /path/to/project1 && node cli.js /path/to/project2
+node npm-scan.js /path/to/project1 && node npm-scan.js /path/to/project2
 ```
 
 ## Output

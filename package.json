@@ -3,12 +3,12 @@
   "version": "2.0.0",
   "description": "Zero-dependency CLI tool to scan npm packages for shai-hulud vulnerability (supply chain attack detection)",
   "type": "module",
-  "main": "cli.js",
+  "main": "npm-scan.js",
   "bin": {
-    "npm-scan": "./cli.js"
+    "npm-scan": "./npm-scan.js"
   },
   "scripts": {
-    "scan": "node cli.js",
+    "scan": "node npm-scan.js",
     "test": "node --test test/*.test.js"
   },
   "keywords": [
