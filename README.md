@@ -45,9 +45,11 @@ node npm-scan.js /path/to/scan
 
 ```bash
 cd go
-go build -o npm-scan ./cmd/npm-scan
+CGO_ENABLED=0 go build -o npm-scan ./cmd/npm-scan
 ./npm-scan /path/to/scan
 ```
+
+**Note for macOS users:** Always use `CGO_ENABLED=0` when building to avoid linker errors.
 
 ## Usage
 
